@@ -141,7 +141,10 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         self.timer.setInterval(1000/fps)
         self.timer.timeout.connect(self.timerEvent)
         self.timer.start()
-
+        self.timer_1s = QTimer(self)
+        self.timer_1s.setInterval(1000)
+        self.timer_1s.timeout.connect(self.timer1s_Event)
+        self.timer_1s.start()
 
     def get_tablespeed(self):
         global act_array
@@ -184,6 +187,7 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         # Parcels[3].r_cm[1] = Parcels[1].y
 
     def num2rgb(self, num):
+
         color = [[0, 0, 255], [0, 255, 0], [255, 255, 0], [255, 0, 0]]
         normal = float(num)/101
         normal = normal*3
@@ -197,6 +201,11 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
                 * fractBetween + color[idx1][2])
         return red, green, blue
 
+
+    def timer1s_Event(self):        # 生成包裹
+        simulation.Generate_parcels()
+
+
     def timerEvent(self):                       # 10fps 刷新中断，可以执行仿真
 
         global act_array 
@@ -208,14 +217,16 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         simulation.Parcel_sim()
 
         end = time.time()
-        # print("仿真时间:",str(end-start))
+        print("仿真时间:",str(end-start))
 
         act_array = simulation.act_array   
         Parcels = simulation.Parcels      # 返回当前包裹的信息
 
         # 控制策略
         start = time.time()
-        ctl.Control(simulation)
+
+        if len(Parcels)!=0:
+            ctl.Control(simulation)
         end = time.time()
         # print("控制策略:",str(end-start))
         # print()
@@ -262,7 +273,6 @@ class mylabel(QLabel):              # 继承 Qlabel 在label范围内画图
         # print(act_array.cal_num_act(205,87))
 
 
-
 act_array = 0  # 全局变量
 Parcels = 0
 simualation = 0
@@ -273,6 +283,7 @@ if __name__ == "__main__":
     simulation = si.Physic_simulation()
     act_array = simulation.act_array  # 全局变量
     Parcels = simulation.Parcels
+    simulation.Generate_parcels()
 
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()

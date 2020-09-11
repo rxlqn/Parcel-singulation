@@ -37,7 +37,6 @@ class Parcel():
         # self.w = random.randrange(71, 81, 2)         # 步长为2,随机奇数
         self.h = 10     # 对理论分析没有意义
 
-        self.pixel = []
 
 
 
@@ -69,6 +68,8 @@ class Parcel():
         self.alpha = 0  # 质心处角加速度
 
         self.prio = 0
+
+
 
 class Actuator():
     def __init__(self):  # 1:5比例尺，单位mm
