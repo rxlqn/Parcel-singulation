@@ -141,11 +141,10 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         self.timer.setInterval(1000/fps)
         self.timer.timeout.connect(self.timerEvent)
         self.timer.start()
-
-        # self.timer_1s = QTimer(self)
-        # self.timer_1s.setInterval(2000)
-        # self.timer_1s.timeout.connect(self.timer1s_Event)
-        # self.timer_1s.start()
+        self.timer_1s = QTimer(self)
+        self.timer_1s.setInterval(1000)
+        self.timer_1s.timeout.connect(self.timer1s_Event)
+        self.timer_1s.start()
 
     def get_tablespeed(self):
         global act_array
@@ -163,41 +162,6 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         speed = act_array.actuator[0].speed
         (red, green, blue) = self.num2rgb(speed)
         act_array.actuator[0].color = QColor(red, green, blue)
-
-    def timer1s_Event(self):        # 需要最密堆积第一个传送带，只要存在空隙就需要生成包裹
-
-        w = act_array.actuator[0].w
-        h = act_array.row * \
-            act_array.actuator[0].h+(act_array.row-1)*act_array.gap_h
-        pass
-
-    def timerEvent(self):                       # 10fps 刷新中断，可以执行仿真
-
-        global act_array 
-        global Parcels
-
-        # 仿真运行
-        start = time.time()
-
-        simulation.Parcel_sim()
-
-        end = time.time()
-        # print("仿真时间:",str(end-start))
-
-
-        act_array = simulation.act_array   
-        Parcels = simulation.Parcels      # 返回当前包裹的信息
-
-        # 控制策略
-        start = time.time()
-        ctl.Control(simulation)
-        end = time.time()
-        # print("控制策略:",str(end-start))
-        # print()
-        # 图形化更新
-        self.get_tablespeed()             
- 
-        self.lb.update()                        # 不占用时间
 
     def pressed(self):  # 按键中断
         act_index = int(self.combo1.currentText())
@@ -223,6 +187,7 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         # Parcels[3].r_cm[1] = Parcels[1].y
 
     def num2rgb(self, num):
+
         color = [[0, 0, 255], [0, 255, 0], [255, 255, 0], [255, 0, 0]]
         normal = float(num)/101
         normal = normal*3
@@ -235,6 +200,40 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         blue = ((color[idx2][2] - color[idx1][2])
                 * fractBetween + color[idx1][2])
         return red, green, blue
+
+
+    def timer1s_Event(self):        # 生成包裹
+        simulation.Generate_parcels()
+
+
+    def timerEvent(self):                       # 10fps 刷新中断，可以执行仿真
+
+        global act_array 
+        global Parcels
+
+        # 仿真运行
+        start = time.time()
+
+        simulation.Parcel_sim()
+
+        end = time.time()
+        print("仿真时间:",str(end-start))
+
+        act_array = simulation.act_array   
+        Parcels = simulation.Parcels      # 返回当前包裹的信息
+
+        # 控制策略
+        start = time.time()
+
+        if len(Parcels)!=0:
+            ctl.Control(simulation)
+        end = time.time()
+        # print("控制策略:",str(end-start))
+        # print()
+        # 图形化更新
+        self.get_tablespeed()             
+ 
+        self.lb.update()                        # 渲染更新
 
 
 class mylabel(QLabel):              # 继承 Qlabel 在label范围内画图
@@ -256,13 +255,13 @@ class mylabel(QLabel):              # 继承 Qlabel 在label范围内画图
             rec_y = parcel.y - (parcel.w-1)/2
             parcel.rec = QRectF(rec_x, rec_y, parcel.l, parcel.w)
 
-            theta = -parcel.theta/180*pi   # 先反方向旋转
-            # 坐标y轴是反的，所以想要使用旋转矩阵需要反过来乘
-            M = np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
-            [rec_x2, rec_y2] = np.dot([parcel.x, parcel.y], M)
-            painter.rotate(-parcel.theta)  # 坐标旋转角度
-            parcel.rec = parcel.rec.translated(
-                int(rec_x2-parcel.x), int(rec_y2-parcel.y))
+            # theta = -parcel.theta/180*pi   # 先反方向旋转
+            # # 坐标y轴是反的，所以想要使用旋转矩阵需要反过来乘
+            # M = np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
+            # [rec_x2, rec_y2] = np.dot([parcel.x, parcel.y], M)
+            # painter.rotate(-parcel.theta)  # 坐标旋转角度
+            # parcel.rec = parcel.rec.translated(
+            #     int(rec_x2-parcel.x), int(rec_y2-parcel.y))
             painter.drawRect(parcel.rec)
             bs = QBrush(QColor(255, 255, 255))
             painter.fillRect(parcel.rec, bs)
@@ -272,7 +271,6 @@ class mylabel(QLabel):              # 继承 Qlabel 在label范围内画图
         # painter.setPen(QColor(0,0,0))
         # painter.drawLine(300,300,205,87)
         # print(act_array.cal_num_act(205,87))
-
 
 
 act_array = 0  # 全局变量
@@ -285,6 +283,7 @@ if __name__ == "__main__":
     simulation = si.Physic_simulation()
     act_array = simulation.act_array  # 全局变量
     Parcels = simulation.Parcels
+    simulation.Generate_parcels()
 
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = QtWidgets.QMainWindow()

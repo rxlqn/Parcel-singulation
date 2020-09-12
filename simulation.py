@@ -12,6 +12,12 @@ import actuator_array as act
 Pixel_array = []
 T = 0
 
+act_temp = act.Actuator_array()
+w = act_temp.actuator[0].w
+h = act_temp.row * \
+        act_temp.actuator[0].h+(act_temp.row-1)*act_temp.gap_h
+
+
 class Physic_simulation():
 
     def __init__(self): 
@@ -19,12 +25,12 @@ class Physic_simulation():
         self.act_array = act.Actuator_array() 
 
 
-    # 根据当前包裹位置生成仿真所需要的像素点
+    # 根据当前包裹位置生成仿真所需要的像素点   ?根据上一个时刻的包裹像素点的分布计算当前像素点的位置
     def Generate_pixel(self, subsample, index):
 
         parcel = self.Parcels[index]
         theta = parcel.theta/180*pi
-        M = np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
+        # M = np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
 
         pixel = np.ones(
             [(parcel.l+1)//subsample, (parcel.w+1)//subsample, 2])   # 生成包裹矩阵
@@ -36,14 +42,13 @@ class Physic_simulation():
 
         pixel.resize((parcel.w+1)//subsample*(parcel.l+1) //
                      subsample, 2)       # 拉成一维
-        pixel = np.dot(pixel-parcel.r_cm, M)+parcel.r_cm       # 旋转后的点
+        # pixel = np.dot(pixel-parcel.r_cm, M)+parcel.r_cm       # 旋转后的点
         return pixel
 
     # 用矩阵计算代替循环优化计算速度,经过分析，np.array占用大量时间，大致为0.14-0.18不可以在循环内进行转换
-    def cal_Force(self, pixel, num_act, index):
+    def cal_Force(self, pixel, num_act, parcel):
         # 分与不同的传送带上的接触面积去计算受力情况
         F = np.array([0, 0])
-        parcel = self.Parcels[index]
         F_test = []
         for i in range(0, num_act.size):
             if num_act[i] == -1:
@@ -147,32 +152,43 @@ class Physic_simulation():
 
     def Parcel_sim(self):
  
+
+
+        # start = time.time()
+        # 生成包裹
+        # self.Generate_parcels()      
+        # end = time.time()
+        # print("仿真包裹生成时间",str(end-start))
+
+        self.Parcel_analysis()
+
+        self.update_pixel()
+
+        # # 根据位置执行策略,一个周期修改一次
+        # self.Control_Policy(parcels_pixel)
+
+    def Parcel_analysis(self):  # 计算每个包裹受力，进行位移更新
         global T
         temp_time = 0
         T = T + 1
         parcels_temp = []
-        # try:
-        #     print("speed1:",self.Parcels[0].v_cm[0])
-        #     print("speed2:",self.Parcels[1].v_cm[0])
-        #     print("speed3:",self.Parcels[2].v_cm[0])
-        #     print()
-        # except:
-        #     pass
+ 
         # 计算每个包裹的受力情况，后面可以改成矩阵运算加快计算速度
         for index in range(0, len(self.Parcels)):         # 存在先后问题，不能直接删除
             parcel = self.Parcels[index]
+
             sub = 8
             # subsample 注意原来的长宽高+1/subsample 需要为整数
-            pixel = self.Generate_pixel(sub, index)
+
+            pixel = self.Generate_pixel(sub, index)    # 放在类里
             num_act = self.cal_num_act(pixel)
 
             # #更新parcel中心点的位置
+            # start = time.time()
+            F = self.cal_Force(pixel, num_act, parcel)*sub*sub       # 质量 受力
 
-            start = time.time()
-            F = self.cal_Force(pixel, num_act, index)*sub*sub       # 质量 受力
-
-            end = time.time()
-            temp_time = end-start+temp_time
+            # end = time.time()
+            # temp_time = end-start+temp_time
             
             # print(F)
             parcel.a_cm = (F)/(parcel.m)
@@ -183,18 +199,6 @@ class Physic_simulation():
                 parcel_x = parcel.x + floor(parcel_v_cm[0]*1)       
             except:
                 print(1)
-
-            # #更新parcel的旋转角度
-            # torque = self.cal_Torque(pixel,num_act,index)/10*4
-            # if torque != 0:
-            #     print()
-            # parcel.alpha = - torque/(parcel.J)        # 转动惯量有点略大
-            # # print(parcel.alpha/parcel.omega)
-
-            # parcel.omega = parcel.omega + 1*parcel.alpha #取整
-            # parcel.theta = (parcel.theta + parcel.omega/pi*180)%360
-            # print("omega:",round(parcel.omega/pi*180,1),"alpha:",round(parcel.alpha,1),"theta:",round(parcel.theta))
-            # print()
 
             # 在计算完旋转角之后更新位移
             parcel.v_cm = parcel_v_cm
@@ -211,11 +215,11 @@ class Physic_simulation():
             else:
                 parcel.T = T + (parcel.x + (parcel.l-1)/2-520)/parcel.v_cm[0]     ## 实测时间
                 print(parcel.T)
-
-
         # print("仿真受力计算时间",str(temp_time))
         self.Parcels = parcels_temp      # 删除越界的包裹
 
+
+    def update_pixel(self):
         # 更新pixel
         parcels_pixel = []
 
@@ -228,10 +232,9 @@ class Physic_simulation():
             pixel = self.Generate_pixel(sub, index)
             parcels_pixel.append(pixel)
 
+        global w,h
         # 生成执行器1上的像素点矩阵
-        w = self.act_array.actuator[0].w
-        h = self.act_array.row * \
-            self.act_array.actuator[0].h+(self.act_array.row-1)*self.act_array.gap_h
+
 
         act1_matrix = np.zeros([w+2, h+2])
 
@@ -243,122 +246,105 @@ class Physic_simulation():
                     if x <= w and y<=h:  #必须取等号
                         act1_matrix[int(x), int(y)] = 1
 
-        # # 根据位置执行策略,一个周期修改一次
-        # self.Control_Policy(parcels_pixel)
 
-        start = time.time()
+    ## 只需要self.Parcels和act_array。
+    ## self.Parcels里应该记录当前所有包裹占用的像素点
 
-        # 生成包裹
-        try:
-            last_parcel = self.Parcels[-1]       # 起始点为最后一个包裹的右下角的点
-            start_x = min(int(last_parcel.x + (last_parcel.l-1)//2),w)
-            start_y = int(last_parcel.y + (last_parcel.w-1)//2)     # 暂时没有使用
+    def Generate_parcels(self):
+        temp = actuator_array.Parcel(5)
+        temp.x = 1
+        temp.y = 1
+        
+        temp.r_cm = [temp.x, temp.y]
+        self.Parcels.append(copy.deepcopy(temp))
 
-        except:
-            start_x = w
-            start_y = 0
-        self.Generate_parcels(act1_matrix, start_x, start_y)
+        # try:
+        #     last_parcel = self.Parcels[-1]       # 起始点为最后一个包裹的右下角的点
+        #     start_x = min(int(last_parcel.x + (last_parcel.l-1)//2),w)
+        #     start_y = int(last_parcel.y + (last_parcel.w-1)//2)     # 暂时没有使用
+        # except:
+        #     start_x = w
+        #     start_y = 0
 
-        end = time.time()
-        # print("仿真包裹生成时间",str(end-start))
+        # exit_flag = 0
+        # insert_flag = 0
+
+        # prob = np.random.randint(1,11)   #1到10随机数
+        # temp = actuator_array.Parcel(prob)
+
+        # for i in range(start_x, 10, -1):       # 从第一个执行器的右上角开始,找到第一个没有被占用的像素点
+        #     for j in range(0, int(h), 1):
+        #         exit_flag = 0
+
+        #         # 如果没有被占用，遍历新temp包裹的四条边，如果没有像素点重复则可以插入
+        #         if self.isoccupy([i, j]) == 0:
+
+        #             temp_l = temp.l
+        #             temp_w = temp.w
+        #             # temp_x = temp.x
+        #             # temp_y = temp.y
+        #             for t in range(0, temp_l+1):    # 遍历上边界
+        #                 if i-t<0:       # 执行器左端的点不判断
+        #                     break                    
+        #                 if self.isoccupy([i-t, j]) == 1:
+        #                     exit_flag = 1
+        #                     break
+        #             if exit_flag == 1:      # 跳出当前循环
+        #                 continue
+        #             for t in range(0, temp_w+1):                     # 右边界
+        #                 if self.isoccupy([i, j+t]) == 1:
+        #                     exit_flag = 1
+        #                     break
+        #             if exit_flag == 1:      # 跳出
+        #                 continue
+        #             for t in range(0, temp_l+1):                     # 下边界
+        #                 if i-t<0:                   
+        #                     # exit_flag = 1
+        #                     break  
+        #                 if self.isoccupy([i-t, j+temp_w]) == 1:
+        #                     exit_flag = 1
+        #                     break
+        #             if exit_flag == 1:      # 跳出
+        #                 continue
+        #             for t in range(0, temp_w+1):                     # 左边界
+        #                 if i-temp_l<0:       # 执行器左端的点不判断
+        #                     break 
+        #                 if self.isoccupy([i-temp_l, j+t]) == 1:
+        #                     exit_flag = 1
+        #                     break
+
+        #             if exit_flag == 0:   # 从第一个未被占用的像素点生成的矩阵符合插入条件
+        #                 # p = temp
+        #                 temp.x = i - (temp_l-1)/2 - 2   # 最后一个数为了留出GAP
+        #                 temp.y = j + (temp_w-1)/2 + 2       
+        #                 temp.r_cm = [temp.x, temp.y]
+                        
+        #                 self.Parcels.append(copy.deepcopy(temp))         # 深度拷贝，避免修改后影响Parcels内的值
+
+        #                 for m in range(i-temp_l,i+1):
+        #                     for n in range(j,j+temp_w+1):
+        #                         if m<0:
+        #                             m = 0
+        #                         if n<0:
+        #                             n = 0
+        #                         act1_matrix[m][n] = 1
+
+        #                 prob = np.random.randint(1,11)   #1到10随机数
+        #                 temp = actuator_array.Parcel(prob)
 
 
-
-    def Generate_parcels(self, act1_matrix, start_x, start_y):
-
-        w = self.act_array.actuator[0].w
-        h = self.act_array.row * \
-            self.act_array.actuator[0].h+(self.act_array.row-1)*self.act_array.gap_h
-
-        exit_flag = 0
-        insert_flag = 0
-        # start = time.time()
-
-        prob = np.random.randint(1,11)   #1到10随机数
-        temp = actuator_array.Parcel(prob)
-
-        for i in range(start_x, 10, -1):       # 从第一个执行器的右上角开始,找到第一个没有被占用的像素点
-            for j in range(0, int(h), 1):
-                exit_flag = 0
-
-                # 如果没有被占用，遍历新temp包裹的四条边，如果没有像素点重复则可以插入
-                if self.isoccupy([i, j], act1_matrix) == 0:
-
-
-
-                    temp_l = temp.l
-                    temp_w = temp.w
-                    # temp_x = temp.x
-                    # temp_y = temp.y
-                    for t in range(0, temp_l+1):    # 遍历上边界
-                        if i-t<0:       # 执行器左端的点不判断
-                            break                    
-                        if self.isoccupy([i-t, j], act1_matrix) == 1:
-                            exit_flag = 1
-                            break
-                    if exit_flag == 1:      # 跳出当前循环
-                        continue
-                    for t in range(0, temp_w+1):                     # 右边界
-                        if self.isoccupy([i, j+t], act1_matrix) == 1:
-                            exit_flag = 1
-                            break
-                    if exit_flag == 1:      # 跳出
-                        continue
-                    for t in range(0, temp_l+1):                     # 下边界
-                        if i-t<0:                   
-                            # exit_flag = 1
-                            break  
-                        if self.isoccupy([i-t, j+temp_w], act1_matrix) == 1:
-                            exit_flag = 1
-                            break
-                    if exit_flag == 1:      # 跳出
-                        continue
-                    for t in range(0, temp_w+1):                     # 左边界
-                        if i-temp_l<0:       # 执行器左端的点不判断
-                            break 
-                        if self.isoccupy([i-temp_l, j+t], act1_matrix) == 1:
-                            exit_flag = 1
-                            break
-
-                    if exit_flag == 0:   # 从第一个未被占用的像素点生成的矩阵符合插入条件
-                        # p = temp
-                        temp.x = i - (temp_l-1)/2 - 2   # 最后一个数为了留出GAP
-                        temp.y = j + (temp_w-1)/2 + 2       
-                        temp.r_cm = [temp.x, temp.y]
-                        self.Parcels.append(copy.deepcopy(temp))         # 深度拷贝，避免修改后影响Parcels内的值
-
-                        for m in range(i-temp_l,i+1):
-                            for n in range(j,j+temp_w+1):
-                                if m<0:
-                                    m = 0
-                                if n<0:
-                                    n = 0
-                                act1_matrix[m][n] = 1
-
-                        prob = np.random.randint(1,11)   #1到10随机数
-                        temp = actuator_array.Parcel(prob)
-
-                        # insert_flag = 1
-                        # break
-
-            # if insert_flag == 1:
-            #     break
-        # end = time.time()
-        # print(str(end-start))
-
-    def isoccupy(self, pixel, act1_matrix):  # 判断像素点是否在当前像素矩阵中被占用
+    def isoccupy(self, pixel):  # 判断像素点是否在当前像素矩阵中被占用
         # start = time.time()
         # for i in range(0,10000):
         try:
-            if act1_matrix[pixel[0]][pixel[1]] == 1:
-                return 1
+            for parcel in self.Parcels:          
+                if pixel in parcel.pixel:
+                    return 1
+                # if act1_matrix[pixel[0]][pixel[1]] == 1:
+                #     return 1
         except:
             return 1  ##溢出直接不满足插入条件
-        # if act1_matrix[pixel[0]][pixel[1]] == 1:
-        #     return 1
-        # end = time.time()
 
-        # print(str(end-start))
         return 0
 
 
