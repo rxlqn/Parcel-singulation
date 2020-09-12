@@ -203,7 +203,8 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
 
 
     def timer1s_Event(self):        # 生成包裹
-        simulation.Generate_parcels()
+        # simulation.Generate_parcels()
+        pass
 
 
     def timerEvent(self):                       # 10fps 刷新中断，可以执行仿真
@@ -225,8 +226,8 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         # 控制策略
         start = time.time()
 
-        if len(Parcels)!=0:
-            ctl.Control(simulation)
+        # if len(Parcels)!=0:
+        #     ctl.Control(simulation)
         end = time.time()
         # print("控制策略:",str(end-start))
         # print()

@@ -5,6 +5,11 @@ actuator_array 执行器阵列预定义文件
 
 control_policy.py 人为控制策略，后面用强化学习模型替代
 
+AC 模型训练两个并列包裹，控制输出距离。
+需要设计reward 
+过终点线记录包裹之间的间距，超过dis的距离reward指数降低，小于dis惩罚
+
+
 
 $ source /d/Program/Anaconda/etc/profile.d/conda.sh
 

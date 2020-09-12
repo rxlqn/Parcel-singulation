@@ -251,13 +251,16 @@ class Physic_simulation():
     ## self.Parcels里应该记录当前所有包裹占用的像素点
 
     def Generate_parcels(self):
-        temp = actuator_array.Parcel(5)
-        temp.x = 1
-        temp.y = 1
-        
-        temp.r_cm = [temp.x, temp.y]
-        self.Parcels.append(copy.deepcopy(temp))
-
+        temp1 = actuator_array.Parcel(4)
+        temp1.x = 1
+        temp1.y = 1
+        temp1.r_cm = [temp1.x, temp1.y]
+        self.Parcels.append(copy.deepcopy(temp1))
+        temp2 = actuator_array.Parcel(4)
+        temp2.x = 1
+        temp2.y = 100
+        temp2.r_cm = [temp2.x, temp2.y]
+        self.Parcels.append(copy.deepcopy(temp2))
         # try:
         #     last_parcel = self.Parcels[-1]       # 起始点为最后一个包裹的右下角的点
         #     start_x = min(int(last_parcel.x + (last_parcel.l-1)//2),w)
