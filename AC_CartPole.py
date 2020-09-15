@@ -18,7 +18,7 @@ np.random.seed(2)
 tf.set_random_seed(2)  # reproducible
 
 # Superparameters
-OUTPUT_GRAPH = True             # 6006打不开要切换端口8008
+OUTPUT_GRAPH = False             # 6006打不开要切换端口8008
 MAX_EPISODE = 3000
 DISPLAY_REWARD_THRESHOLD = 200  # renders environment if total episode reward is greater then this threshold
 MAX_EP_STEPS = 1000   # maximum time step in one episode
@@ -31,8 +31,8 @@ env = gym.make('CartPole-v0')
 env.seed(1)  # reproducible
 env = env.unwrapped
 
-N_F = env.observation_space.shape[0]
-N_A = env.action_space.n
+N_F = env.observation_space.shape[0]        #4
+N_A = env.action_space.n                    #2
 
 
 class Actor(object):
@@ -56,29 +56,40 @@ class Actor(object):
             self.acts_prob = tf.layers.dense(   #全连接层
                 inputs=l1,
                 units=n_actions,    # output units
-                activation=tf.nn.softmax,   # get action probabilities
+                activation=None,   # get action probabilities
                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
                 name='acts_prob'
             )
 
         with tf.variable_scope('exp_v'):                    # 目标最大化回报函数
-            log_prob = tf.log(self.acts_prob[0, self.a])           
+            # self.acts_prob = tf.log(tf.clip_by_value(y,1e-8,1.0))
+            log_prob = tf.log(tf.clip_by_value(self.acts_prob,1e-8,1.0))    # 防止出现nan
+
+            # log_prob = tf.log(self.acts_prob)           # ? 输入action       
             self.exp_v = tf.reduce_mean(log_prob * self.td_error)  # advantage (TD_error) guided loss 步长
 
         with tf.variable_scope('train'):
             self.train_op = tf.train.AdamOptimizer(lr).minimize(-self.exp_v)  # minimize(-exp_v) = maximize(exp_v)  
 
-    def learn(self, s, a, td):
+    def learn(self, s, a, td):              # 反传？
         s = s[np.newaxis, :]
         feed_dict = {self.s: s, self.a: a, self.td_error: td}
-        _, exp_v = self.sess.run([self.train_op, self.exp_v], feed_dict)
+        _, exp_v = self.sess.run([self.train_op, self.exp_v], feed_dict)        #fetches feed_dict
         return exp_v
 
     def choose_action(self, s):
-        s = s[np.newaxis, :]
+        s = s[np.newaxis, :]                # 增加一个维度
         probs = self.sess.run(self.acts_prob, {self.s: s})   # get probabilities for all actions
-        return np.random.choice(np.arange(probs.shape[1]), p=probs.ravel())   # return a int
+        speed_lvl = []
+        prob_tmp = probs[0]
+
+        for i in range(0,17):
+            prob_ = prob_tmp[i*5:(i+1)*5]
+            e_x = np.exp(prob_ - np.max(prob_))
+            prob__ =  e_x / e_x.sum()
+            speed_lvl.append(np.random.choice(np.arange(5), p=prob__))
+        return  speed_lvl           # return a int  按照概率P随机选择
 
 
 class Critic(object):
@@ -124,46 +135,47 @@ class Critic(object):
                                           {self.s: s, self.v_: v_, self.r: r})
         return td_error
 
+if __name__ == "__main__":
 
-# sess = tf.Session()
+    sess = tf.Session()
 
-# actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A)
-# critic = Critic(sess, n_features=N_F, lr=LR_C)     # we need a good teacher, so the teacher should learn faster than the actor
+    actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A)
+    critic = Critic(sess, n_features=N_F, lr=LR_C)     # we need a good teacher, so the teacher should learn faster than the actor
 
-# sess.run(tf.global_variables_initializer())
+    sess.run(tf.global_variables_initializer())
 
-# if OUTPUT_GRAPH:
-#     tf.summary.FileWriter("logs/", sess.graph)
+    if OUTPUT_GRAPH:
+        tf.summary.FileWriter("logs/", sess.graph)
 
-# for i_episode in range(MAX_EPISODE):
-#     s = env.reset()
-#     t = 0
-#     track_r = []
-#     while True:
-#         if RENDER: env.render()
+    for i_episode in range(MAX_EPISODE):
+        s = env.reset()
+        t = 0
+        track_r = []
+        while True:
+            if RENDER: env.render()
 
-#         a = actor.choose_action(s)
+            a = actor.choose_action(s)
 
-#         s_, r, done, info = env.step(a)
+            s_, r, done, info = env.step(a)
 
-#         if done: r = -20
+            if done: r = -20
 
-#         track_r.append(r)
+            track_r.append(r)
 
-#         td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
-#         actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
+            td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
+            actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
 
-#         s = s_
-#         t += 1
+            s = s_
+            t += 1
 
-#         if done or t >= MAX_EP_STEPS:
-#             ep_rs_sum = sum(track_r)
+            if done or t >= MAX_EP_STEPS:
+                ep_rs_sum = sum(track_r)
 
-#             if 'running_reward' not in globals():
-#                 running_reward = ep_rs_sum
-#             else:
-#                 running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
-#             if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
-#             print("episode:", i_episode, "  reward:", int(running_reward))
-#             break
+                if 'running_reward' not in globals():
+                    running_reward = ep_rs_sum
+                else:
+                    running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
+                if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
+                print("episode:", i_episode, "  reward:", int(running_reward))
+                break
 

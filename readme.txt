@@ -7,9 +7,16 @@ control_policy.py 人为控制策略，后面用强化学习模型替代
 
 AC 模型训练两个并列包裹，控制输出距离。
 需要设计reward 
-过终点线记录包裹之间的间距，超过dis的距离reward指数降低，小于dis惩罚
+
+actor 模型
+input 1*8 或者2*4 两个包裹的位置信息
+output 17*5 17个传送带的5级速度的概率
 
 
+reward 过终点线记录包裹之间的间距，超过dis的距离reward指数降低，小于dis惩罚,未过线前均为-1(希望尽快抵达终点)
+state 当前包裹位置信息 dim 3  [传送带index,坐标x,坐标y] (先测试2个包裹)  
+action 传送带 dim 2 [传送带index,velocity] 21  (21个传送带)    总的情况可能很多，维度2
+        21个传送带，从5级速度中choose速度
 
 $ source /d/Program/Anaconda/etc/profile.d/conda.sh
 
@@ -24,4 +31,6 @@ todo:
 3、设计reward方式
 4、使用actor critic方式代替人为决策
 
+actor critic advantage 版本收敛效果不太好
 
+85个输出时并不收敛

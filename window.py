@@ -226,8 +226,8 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         # 控制策略
         start = time.time()
 
-        # if len(Parcels)!=0:
-        #     ctl.Control(simulation)
+        if len(Parcels)!=0:
+            ctl.Control(simulation)
         end = time.time()
         # print("控制策略:",str(end-start))
         # print()

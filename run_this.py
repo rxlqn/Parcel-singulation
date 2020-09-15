@@ -8,8 +8,8 @@ np.random.seed(2)
 tf.set_random_seed(2)  # reproducible
 
 # Superparameters
-OUTPUT_GRAPH = True             # 6006打不开要切换端口8008
-MAX_EPISODE = 3000
+OUTPUT_GRAPH = False             # 6006打不开要切换端口8008
+MAX_EPISODE = 5000
 DISPLAY_REWARD_THRESHOLD = 200  # renders environment if total episode reward is greater then this threshold
 MAX_EP_STEPS = 1000   # maximum time step in one episode
 RENDER = False  # rendering wastes time
@@ -17,12 +17,16 @@ GAMMA = 0.9     # reward discount in TD error
 LR_A = 0.001    # learning rate for actor
 LR_C = 0.01     # learning rate for critic
 
-env = gym.make('CartPole-v0')
-env.seed(1)  # reproducible
-env = env.unwrapped
+# env = gym.make('CartPole-v0')
+# env.seed(1)  # reproducible
+# env = env.unwrapped   
 
-N_F = env.observation_space.shape[0]
-N_A = env.action_space.n
+# N_F = env.observation_space.shape[0]
+# N_A = env.action_space.n
+N_F = 8         # # of features
+N_A = 5*17        # # of actions      17个传送带 
+
+env = sim.Environment()
 
 if __name__ == "__main__":
 
@@ -38,16 +42,19 @@ if __name__ == "__main__":
 
     for i_episode in range(MAX_EPISODE):
         s = env.reset()
+        # init state 
+
+
         t = 0
         track_r = []
         while True:
-            if RENDER: env.render()
+            # if RENDER: env.render()
 
             a = actor.choose_action(s)
 
-            s_, r, done, info = env.step(a)
+            s_, r, done = env.step(a)
 
-            if done: r = -20
+            # if done: r = -20
 
             track_r.append(r)
 

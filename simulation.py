@@ -23,7 +23,7 @@ class Physic_simulation():
     def __init__(self): 
         self.Parcels = []           # 生成包裹需要考虑当前的像素占用情况
         self.act_array = act.Actuator_array() 
-
+        self.finish_time = []
 
     # 根据当前包裹位置生成仿真所需要的像素点   ?根据上一个时刻的包裹像素点的分布计算当前像素点的位置
     def Generate_pixel(self, subsample, index):
@@ -214,7 +214,8 @@ class Physic_simulation():
                 # parcel.T  = parcel.T + 1
             else:
                 parcel.T = T + (parcel.x + (parcel.l-1)/2-520)/parcel.v_cm[0]     ## 实测时间
-                print(parcel.T)
+                # print(parcel.T)
+                self.finish_time.append(parcel.T)
         # print("仿真受力计算时间",str(temp_time))
         self.Parcels = parcels_temp      # 删除越界的包裹
 
@@ -251,13 +252,13 @@ class Physic_simulation():
     ## self.Parcels里应该记录当前所有包裹占用的像素点
 
     def Generate_parcels(self):
-        temp1 = actuator_array.Parcel(4)
-        temp1.x = 1
-        temp1.y = 1
+        temp1 = actuator_array.Parcel(2)
+        temp1.x = 40
+        temp1.y = 40
         temp1.r_cm = [temp1.x, temp1.y]
         self.Parcels.append(copy.deepcopy(temp1))
-        temp2 = actuator_array.Parcel(4)
-        temp2.x = 1
+        temp2 = actuator_array.Parcel(2)
+        temp2.x = 40
         temp2.y = 100
         temp2.r_cm = [temp2.x, temp2.y]
         self.Parcels.append(copy.deepcopy(temp2))
@@ -351,3 +352,58 @@ class Physic_simulation():
         return 0
 
 
+class Environment(Physic_simulation):
+    def __init__(self):
+
+        self._build()
+    def _build(self):
+        self.finish_time = []
+        self.Parcels = []
+        self.act_array = act.Actuator_array() 
+        self.Generate_parcels()
+
+    def reset(self):
+        self.finish_time = []
+
+        self.Parcels = []
+        self.act_array = act.Actuator_array() 
+        self.Generate_parcels()
+        # 返回两个包裹的位置信息
+        loc1 = [self.Parcels[0].x,self.Parcels[0].y,self.Parcels[0].l,self.Parcels[0].w]
+        loc2 = [self.Parcels[1].x,self.Parcels[1].y,self.Parcels[1].l,self.Parcels[1].w]
+        loc1.extend(loc2)
+        loc = np.array(loc1)
+        return loc   #dim=1
+
+    def step(self, action):
+        # take action
+        for i in range(0,17):
+            self.act_array.actuator[i].speed = action[i]*20
+        # next step
+        self.Parcel_sim()
+        # s_
+        try:
+            loc1 = [self.Parcels[0].x,self.Parcels[0].y,self.Parcels[0].l,self.Parcels[0].w]
+            loc2 = [self.Parcels[1].x,self.Parcels[1].y,self.Parcels[1].l,self.Parcels[1].w]
+        except:
+            loc2 = [-1,-1,-1,-1]        # 包裹过线
+            loc1 = [-1,-1,-1,-1]        # 包裹过线
+
+        loc1.extend(loc2)
+        s_ = np.array(loc1)
+        r_normal = -1*len(self.Parcels)
+        r_finish = 0
+        done = 0
+        if len(self.Parcels) == 0:       ## 两个包裹都过线了
+            done = 1
+            delta_t = self.finish_time[1] - self.finish_time[0]
+            if delta_t >= 5 and delta_t <= 6:
+                r_finish = 100/(delta_t - 4.999)
+            else:
+                r_finish = -100
+            if delta_t >6:
+                r_finish = -10
+            print("两个包裹相差时间","  ",delta_t)
+            # print(delta_t)
+        r = r_normal + r_finish
+        return s_,r,done
