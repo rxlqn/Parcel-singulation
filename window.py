@@ -23,6 +23,23 @@ import simulation as si
 import control_policy as ctl
 
 import multiprocessing as mp
+import tensorflow as tf
+import AC_CartPole as ac 
+
+LR_A = 0.001    # learning rate for actor
+LR_C = 0.01     # learning rate for critic
+
+# env = gym.make('CartPole-v0')
+# env.seed(1)  # reproducible
+# env = env.unwrapped   
+
+# N_F = env.observation_space.shape[0]
+# N_A = env.action_space.n
+N_F = 8         # # of features
+N_A = 5*17        # # of actions      17个传送带 
+
+env = si.Environment()
+s = env.reset()
 
 class Ui_MainWindow(QWidget):       # 继承Qwidget
     def setupUi(self, MainWindow):
@@ -211,23 +228,30 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
 
         global act_array 
         global Parcels
+        global s
+        # # 仿真运行
+        # start = time.time()
 
-        # 仿真运行
-        start = time.time()
+        # simulation.Parcel_sim()
 
-        simulation.Parcel_sim()
+        # end = time.time()
+        # print("仿真时间:",str(end-start))
 
-        end = time.time()
-        print("仿真时间:",str(end-start))
-
-        act_array = simulation.act_array   
-        Parcels = simulation.Parcels      # 返回当前包裹的信息
-
+        # act_array = simulation.act_array   
+        # Parcels = simulation.Parcels      # 返回当前包裹的信息
+        Parcels = env.Parcels
+        act_array = env.act_array
         # 控制策略
         start = time.time()
 
-        if len(Parcels)!=0:
-            ctl.Control(simulation)
+        # if len(Parcels)!=0:
+        #     ctl.Control(simulation)
+
+        a = actor.choose_action(s)
+        
+        s_, r, done = env.step(a)
+        s = s_
+
         end = time.time()
         # print("控制策略:",str(end-start))
         # print()
@@ -280,6 +304,19 @@ simualation = 0
 
 if __name__ == "__main__":
 
+
+    
+    sess = tf.Session()
+
+    actor = ac.Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A)
+    critic = ac.Critic(sess, n_features=N_F, lr=LR_C)     # we need a good teacher, so the teacher should learn faster than the actor
+
+
+    saver = tf.train.Saver()
+    ckpt_path = './ckpt/test-model.ckpt'
+    saver.restore(sess, ckpt_path)
+
+    # s = env.reset()
 
     simulation = si.Physic_simulation()
     act_array = simulation.act_array  # 全局变量
