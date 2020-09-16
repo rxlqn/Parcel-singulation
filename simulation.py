@@ -11,7 +11,7 @@ import actuator_array as act
 
 Pixel_array = []
 T = 0
-
+finish_tmp = 0
 act_temp = act.Actuator_array()
 w = act_temp.actuator[0].w
 h = act_temp.row * \
@@ -168,7 +168,7 @@ class Physic_simulation():
         # self.Control_Policy(parcels_pixel)
 
     def Parcel_analysis(self):  # 计算每个包裹受力，进行位移更新
-        global T
+        global T,finish_tmp
         temp_time = 0
         T = T + 1
         parcels_temp = []
@@ -194,6 +194,11 @@ class Physic_simulation():
             parcel.a_cm = (F)/(parcel.m)
             # print(parcel.a_cm[0]/parcel.v_cm[0])   ### 大于-1,小于-1会产生振荡
             parcel_v_cm = parcel.v_cm + 1*parcel.a_cm
+
+            # 检测碰撞，如果碰撞，则速度为0
+            if self.overlap_detect(index):
+                parcel_v_cm = np.array([0,0])
+
             try:
                 # 一个单位时间更新一次，减小刷新步长
                 parcel_x = parcel.x + floor(parcel_v_cm[0]*1)       
@@ -215,9 +220,24 @@ class Physic_simulation():
             else:
                 parcel.T = T + (parcel.x + (parcel.l-1)/2-520)/parcel.v_cm[0]     ## 实测时间
                 # print(parcel.T)
-                self.finish_time.append(parcel.T)
+                # self.finish_time.append(parcel.T)
+                if finish_tmp!=0:
+                    self.finish_flag = 1        # 包裹过线标志位
+                    self.delta_t = parcel.T - finish_tmp
+                finish_tmp = parcel.T
         # print("仿真受力计算时间",str(temp_time))
         self.Parcels = parcels_temp      # 删除越界的包裹
+
+    def overlap_detect(self,index):        # index指当前的包裹下标
+        target = self.Parcels[index]
+        for i in range(0, len(self.Parcels)):
+            if i != index:          # 与不是自己比较
+                P = self.Parcels[i]
+                if abs(target.x-P.x)<=(target.l/2+P.l/2) and abs(target.y-P.y)<=(target.w/2+P.w/2):
+                    if target.x<P.x:
+                        P.v_cm = np.array([5,0])
+                        return 1
+        return 0
 
 
     def update_pixel(self):
@@ -250,6 +270,13 @@ class Physic_simulation():
 
     ## 只需要self.Parcels和act_array。
     ## self.Parcels里应该记录当前所有包裹占用的像素点
+    def Add_parcels(self):
+        temp1 = actuator_array.Parcel(2)
+        temp1.x = 40
+        temp1.y = 40
+        temp1.r_cm = [temp1.x, temp1.y]
+        self.Parcels.append(copy.deepcopy(temp1))
+
 
     def Generate_parcels(self):
         temp1 = actuator_array.Parcel(2)
@@ -357,14 +384,17 @@ class Environment(Physic_simulation):
 
         self._build()
     def _build(self):
-        self.finish_time = []
+        # self.finish_time = []
+        self.finish_flag = 0        # 声明继承Physic_simulation的属性
+        self.delta_t = 0
         self.Parcels = []
         self.act_array = act.Actuator_array() 
         self.Generate_parcels()
 
     def reset(self):
-        self.finish_time = []
-
+        # self.finish_time = []
+        self.finish_flag = 0
+        self.delta_t = 0
         self.Parcels = []
         self.act_array = act.Actuator_array() 
         self.Generate_parcels()
@@ -381,6 +411,8 @@ class Environment(Physic_simulation):
             self.act_array.actuator[i].speed = action[i]*20
         # next step
         self.Parcel_sim()
+        if len(self.Parcels) < 2:
+            self.Add_parcels()
         # s_
         try:
             loc1 = [self.Parcels[0].x,self.Parcels[0].y,self.Parcels[0].l,self.Parcels[0].w]
@@ -394,16 +426,18 @@ class Environment(Physic_simulation):
         r_normal = -1*len(self.Parcels)
         r_finish = 0
         done = 0
-        if len(self.Parcels) == 0:       ## 两个包裹都过线了
-            done = 1
-            delta_t = self.finish_time[1] - self.finish_time[0]
+        if self.finish_flag == 1:       ## 有包裹过线
+            self.finish_flag = 0
+            # done = 1
+            # delta_t = self.finish_time[1] - self.finish_time[0]
+            delta_t = self.delta_t
             if delta_t >= 5 and delta_t <= 6:
                 r_finish = 100/(delta_t - 4.999)
             else:
                 r_finish = -100
             if delta_t >6:
                 r_finish = -10
-            print("两个包裹相差时间","  ",delta_t)
+            print("两个包裹相差时间\t",round(delta_t,1),"\tr_finish\t", round(r_finish,1))
             # print(delta_t)
         r = r_normal + r_finish
         return s_,r,done

@@ -230,6 +230,10 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         global Parcels
         global s
         # # 仿真运行
+        # if len(Parcels) == 0:
+        #     env.reset()
+
+
         # start = time.time()
 
         # simulation.Parcel_sim()

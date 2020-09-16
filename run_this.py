@@ -9,7 +9,7 @@ tf.set_random_seed(2)  # reproducible
 
 # Superparameters
 OUTPUT_GRAPH = False             # 6006打不开要切换端口8008
-MAX_EPISODE = 100
+MAX_EPISODE = 1000
 DISPLAY_REWARD_THRESHOLD = 200  # renders environment if total episode reward is greater then this threshold
 MAX_EP_STEPS = 1000   # maximum time step in one episode
 RENDER = False  # rendering wastes time
