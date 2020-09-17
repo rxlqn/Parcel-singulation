@@ -398,9 +398,9 @@ class Environment(Physic_simulation):
         self.Parcels = []
         self.act_array = act.Actuator_array() 
         self.Generate_parcels()
-        # 返回两个包裹的位置信息
-        loc1 = [self.Parcels[0].x,self.Parcels[0].y,self.Parcels[0].l,self.Parcels[0].w]
-        loc2 = [self.Parcels[1].x,self.Parcels[1].y,self.Parcels[1].l,self.Parcels[1].w]
+        # 返回两个包裹的位置信息  加x方向速度
+        loc1 = [self.Parcels[0].x,self.Parcels[0].y,self.Parcels[0].l,self.Parcels[0].w,self.Parcels[0].v_cm[0]]
+        loc2 = [self.Parcels[1].x,self.Parcels[1].y,self.Parcels[1].l,self.Parcels[1].w,self.Parcels[1].v_cm[0]]
         loc1.extend(loc2)
         loc = np.array(loc1)
         return loc   #dim=1
@@ -408,18 +408,18 @@ class Environment(Physic_simulation):
     def step(self, action):
         # take action
         for i in range(0,17):
-            self.act_array.actuator[i].speed = action[i]*20+20
+            self.act_array.actuator[i].speed = action[i]*10 + 10        # 10-100可调
         # next step
         self.Parcel_sim()
         if len(self.Parcels) < 2:
             self.Add_parcels()
         # s_
         try:
-            loc1 = [self.Parcels[0].x,self.Parcels[0].y,self.Parcels[0].l,self.Parcels[0].w]
-            loc2 = [self.Parcels[1].x,self.Parcels[1].y,self.Parcels[1].l,self.Parcels[1].w]
+            loc1 = [self.Parcels[0].x,self.Parcels[0].y,self.Parcels[0].l,self.Parcels[0].w,self.Parcels[0].v_cm[0]]
+            loc2 = [self.Parcels[1].x,self.Parcels[1].y,self.Parcels[1].l,self.Parcels[1].w,self.Parcels[1].v_cm[0]]
         except:
-            loc2 = [-1,-1,-1,-1]        # 包裹过线
-            loc1 = [-1,-1,-1,-1]        # 包裹过线
+            loc2 = [-1,-1,-1,-1,-1]        # 包裹过线
+            loc1 = [-1,-1,-1,-1,-1]        # 包裹过线
 
         loc1.extend(loc2)
         s_ = np.array(loc1)

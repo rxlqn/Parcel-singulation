@@ -8,22 +8,6 @@ np.random.seed(2)
 tf.set_random_seed(2)  # reproducible
 
 
-# tensorboard
-try:
-  image_summary = tf.image_summary
-  scalar_summary = tf.scalar_summary
-  histogram_summary = tf.histogram_summary
-  merge_summary = tf.merge_summary
-  SummaryWriter = tf.train.SummaryWriter
-except:
-  image_summary = tf.summary.image
-  scalar_summary = tf.summary.scalar
-  histogram_summary = tf.summary.histogram
-  merge_summary = tf.summary.merge
-  SummaryWriter = tf.summary.FileWriter
-
-
-
 # Superparameters
 OUTPUT_GRAPH = True             # 6006打不开要切换端口8008
 MAX_EPISODE = 100
@@ -34,14 +18,9 @@ GAMMA = 0.9     # reward discount in TD error
 LR_A = 0.001    # learning rate for actor
 LR_C = 0.01     # learning rate for critic
 
-# env = gym.make('CartPole-v0')
-# env.seed(1)  # reproducible
-# env = env.unwrapped   
 
-# N_F = env.observation_space.shape[0]
-# N_A = env.action_space.n
-N_F = 8         # # of features
-N_A = 5        # # of actions      17个传送带  5个速度
+N_F = 10         # # of features
+N_A = 10        # # of actions      17个传送带  10个速度
 
 env = sim.Environment()
 
@@ -73,8 +52,6 @@ if __name__ == "__main__":
             a = actor.choose_action(s)
 
             s_, r, done = env.step(a)
-
-            # if done: r = -20
 
             track_r.append(r)
 

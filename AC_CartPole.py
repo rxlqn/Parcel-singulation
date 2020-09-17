@@ -27,14 +27,10 @@ GAMMA = 0.9     # reward discount in TD error
 LR_A = 0.001    # learning rate for actor
 LR_C = 0.01     # learning rate for critic
 
-env = gym.make('CartPole-v0')
-env.seed(1)  # reproducible
-env = env.unwrapped
-
-N_F = env.observation_space.shape[0]        #4
-N_A = env.action_space.n                    #2
 
 
+N_F = 10         # # of features
+N_A = 10        # # of actions      17个传送带  10个速度
 
 
 class Actor(object):
@@ -95,7 +91,7 @@ class Actor(object):
         feed_dict = {self.s: s, self.a: a, self.td_error: td}
 
         for i in range(0,17):       #17个传送带分别建模 input state output action prob
-            _, exp_v= self.sess.run([self.train_op[i], self.exp_v[i]], feed_dict)        #fetches feed_dict
+            _, exp_v,acts_prob= self.sess.run([self.train_op[i], self.exp_v[i],self.acts_prob[i]], feed_dict)        #fetches feed_dict
 
 
     def choose_action(self, s):
@@ -105,7 +101,7 @@ class Actor(object):
         feed_dict = {self.s: s}
         for i in range(0,17):       #17个传送带分别建模 input state output action prob
             probs = self.sess.run(self.acts_prob[i], feed_dict)        #fetches feed_dict
-            speed_lvl.append(np.random.choice(np.arange(5), p=probs[0]))
+            speed_lvl.append(np.random.choice(np.arange(N_F), p=probs[0]))
 
         return  speed_lvl           # return a int  按照概率P随机选择
 
@@ -156,48 +152,4 @@ class Critic(object):
         td_error, _= self.sess.run([self.td_error, self.train_op],
                                           {self.s: s, self.v_: v_, self.r: r})
         return td_error,v_
-
-if __name__ == "__main__":
-
-    sess = tf.Session()
-
-    actor = Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A)
-    critic = Critic(sess, n_features=N_F, lr=LR_C)     # we need a good teacher, so the teacher should learn faster than the actor
-
-    sess.run(tf.global_variables_initializer())
-
-    if OUTPUT_GRAPH:
-        tf.summary.FileWriter("logs/", sess.graph)
-
-    for i_episode in range(MAX_EPISODE):
-        s = env.reset()
-        t = 0
-        track_r = []
-        while True:
-            if RENDER: env.render()
-
-            a = actor.choose_action(s)
-
-            s_, r, done, info = env.step(a)
-
-            if done: r = -20
-
-            track_r.append(r)
-
-            td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
-            actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
-
-            s = s_
-            t += 1
-
-            if done or t >= MAX_EP_STEPS:
-                ep_rs_sum = sum(track_r)
-
-                if 'running_reward' not in globals():
-                    running_reward = ep_rs_sum
-                else:
-                    running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
-                if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
-                print("episode:", i_episode, "  reward:", int(running_reward))
-                break
 
