@@ -408,7 +408,7 @@ class Environment(Physic_simulation):
     def step(self, action):
         # take action
         for i in range(0,17):
-            self.act_array.actuator[i].speed = action[i]*20
+            self.act_array.actuator[i].speed = action[i]*20+20
         # next step
         self.Parcel_sim()
         if len(self.Parcels) < 2:
@@ -431,13 +431,14 @@ class Environment(Physic_simulation):
             # done = 1
             # delta_t = self.finish_time[1] - self.finish_time[0]
             delta_t = self.delta_t
-            if delta_t >= 5 and delta_t <= 6:
-                r_finish = 100/(delta_t - 4.999)
+            if delta_t >= 5: ##and delta_t <= 6:
+                r_finish = 200##/(delta_t - 4.999)
+
             else:
                 r_finish = -100
-            if delta_t >6:
-                r_finish = -10
-            print("两个包裹相差时间\t",round(delta_t,1),"\tr_finish\t", round(r_finish,1))
+            # if delta_t >6:
+            #     r_finish = -10
+            # print("两个包裹相差时间\t",round(delta_t,1),"\tr_finish\t", round(r_finish,1))
             # print(delta_t)
         r = r_normal + r_finish
         return s_,r,done

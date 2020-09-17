@@ -25,8 +25,8 @@ except:
 
 
 # Superparameters
-OUTPUT_GRAPH = False             # 6006打不开要切换端口8008
-MAX_EPISODE = 1000
+OUTPUT_GRAPH = True             # 6006打不开要切换端口8008
+MAX_EPISODE = 100
 DISPLAY_REWARD_THRESHOLD = 200  # renders environment if total episode reward is greater then this threshold
 MAX_EP_STEPS = 1000   # maximum time step in one episode
 RENDER = False  # rendering wastes time
@@ -41,7 +41,7 @@ LR_C = 0.01     # learning rate for critic
 # N_F = env.observation_space.shape[0]
 # N_A = env.action_space.n
 N_F = 8         # # of features
-N_A = 5*17        # # of actions      17个传送带 
+N_A = 5        # # of actions      17个传送带  5个速度
 
 env = sim.Environment()
 
@@ -52,11 +52,14 @@ if __name__ == "__main__":
     actor = ac.Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A)
     critic = ac.Critic(sess, n_features=N_F, lr=LR_C)     # we need a good teacher, so the teacher should learn faster than the actor
 
+    merged = tf.summary.merge_all()
+
+
     sess.run(tf.global_variables_initializer())
 
     if OUTPUT_GRAPH:
-        tf.summary.FileWriter("logs/", sess.graph)
-
+        writer = tf.summary.FileWriter("logs/", sess.graph)
+        # writer.add_summary
     for i_episode in range(MAX_EPISODE):
         s = env.reset()
         # init state 
@@ -75,22 +78,33 @@ if __name__ == "__main__":
 
             track_r.append(r)
 
-            td_error = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
+            td_error,v_ = critic.learn(s, r, s_)  # gradient = grad[r + gamma * V(s_) - V(s)]
             actor.learn(s, a, td_error)     # true_gradient = grad[logPi(s,a) * td_error]
 
+            if t%500 == 0:
+                feed_dict = {actor.s: s[np.newaxis, :], actor.a: a, actor.td_error: td_error,critic.s: s[np.newaxis, :],critic.r: r,critic.v_: v_}
+                result = sess.run(merged,feed_dict)
+
+ 
+
+                writer.add_summary(result, t+i_episode*MAX_EP_STEPS)
+
+            # update
             s = s_
             t += 1
 
             if done or t >= MAX_EP_STEPS:
+
                 ep_rs_sum = sum(track_r)
-
-
-                if 'running_reward' not in globals():
-                    running_reward = ep_rs_sum
-                else:
-                    running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
-                if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
-                print("episode:", i_episode, "  reward:", int(running_reward))
+                print("episode:", i_episode, "  reward:", int(ep_rs_sum))
+                
+                # tf.summary.scalar('reward',ep_rs_sum)
+                # if 'running_reward' not in globals():
+                #     running_reward = ep_rs_sum
+                # else:
+                #     running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
+                # if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
+                # print("episode:", i_episode, "  reward:", int(running_reward))
                 break
     # 超过max_episode
     saver = tf.train.Saver()

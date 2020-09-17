@@ -19,6 +19,7 @@ action 传送带 dim 2 [传送带index,velocity] 21  (21个传送带)    总的�
         21个传送带，从5级速度中choose速度
 
 $ source /d/Program/Anaconda/etc/profile.d/conda.sh
+tensorboard --port 6006 --logdir logs
 
 todo:
 一个包裹，强化学习到终点

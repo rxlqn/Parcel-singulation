@@ -35,6 +35,8 @@ N_F = env.observation_space.shape[0]        #4
 N_A = env.action_space.n                    #2
 
 
+
+
 class Actor(object):
     def __init__(self, sess, n_features, n_actions, lr=0.001):
         self.sess = sess
@@ -43,52 +45,68 @@ class Actor(object):
         self.a = tf.placeholder(tf.int32, None, "act")
         self.td_error = tf.placeholder(tf.float32, None, "td_error")  # TD_error
 
-        with tf.variable_scope('Actor'):            # 拟合策略函数 input state,output act_prob
+        self.acts_prob = []
+        self.log_prob = []
+        self.exp_v = []
+        self.train_op = []
+
+        for i in range(0,17):       #17个传送带分别建模 input state output action prob
+            index = i
+            self.actor_model(index, n_actions, lr=0.001)
+
+    def actor_model(self,index, n_actions, lr=0.001):
+        with tf.variable_scope('Actor'+str(index)):            # 拟合策略函数 input state,output act_prob
             l1 = tf.layers.dense(
                 inputs=self.s,
-                units=30,    # number of hidden units
+                units=20,    # number of hidden units
                 activation=tf.nn.relu,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
-                name='l1'
+                name='l1'+str(index)
             )
 
-            self.acts_prob = tf.layers.dense(   #全连接层
+            acts_prob = tf.layers.dense(   #全连接层
                 inputs=l1,
                 units=n_actions,    # output units
-                activation=None,   # get action probabilities
+                activation=tf.nn.softmax,   # get action probabilities
                 kernel_initializer=tf.random_normal_initializer(0., .1),  # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
-                name='acts_prob'
+                name='acts_prob'+str(index)
             )
+            self.acts_prob.append(acts_prob)
 
-        with tf.variable_scope('exp_v'):                    # 目标最大化回报函数
+        with tf.variable_scope('exp_v'+str(index)):                    # 目标最大化回报函数
+            acts_prob_tmp = self.acts_prob[index]
             #  ??                                                                # 当前state take action对应的概率，增加正激励概率，减小负激励概率
-            log_prob = tf.log(tf.clip_by_value(self.acts_prob,1e-8,1.0))    # 防止出现nan
-            self.log_prob = log_prob
-            # log_prob = tf.log(self.acts_prob)           # ? 输入action       
-            self.exp_v = tf.reduce_mean(log_prob * self.td_error)  # advantage (TD_error) guided loss 步长
+            log_prob = tf.log(tf.clip_by_value(acts_prob_tmp[0,self.a[index]],1e-8,1.0))    # 防止出现nan
+            self.log_prob.append(log_prob)
+            # log_prob = tf.log(self.acts_prob)           # ? 输入action  
+            exp_v = tf.reduce_mean(log_prob * self.td_error)
+            self.exp_v.append(exp_v)  # advantage (TD_error) guided loss 步长
 
-        with tf.variable_scope('train'):
-            self.train_op = tf.train.AdamOptimizer(lr).minimize(-self.exp_v)  # minimize(-exp_v) = maximize(exp_v)  
+            ## 添加到tensorboard显示
+            tf.summary.scalar('exp_v'+str(index),exp_v)
+
+        with tf.variable_scope('train'+str(index)):
+            self.train_op.append(tf.train.AdamOptimizer(lr).minimize(-self.exp_v[index]))  # minimize(-exp_v) = maximize(exp_v)  
 
     def learn(self, s, a, td):              # 反传？
         s = s[np.newaxis, :]
         feed_dict = {self.s: s, self.a: a, self.td_error: td}
-        _, exp_v,log_prob = self.sess.run([self.train_op, self.exp_v,self.log_prob], feed_dict)        #fetches feed_dict
-        return exp_v
+
+        for i in range(0,17):       #17个传送带分别建模 input state output action prob
+            _, exp_v= self.sess.run([self.train_op[i], self.exp_v[i]], feed_dict)        #fetches feed_dict
+
 
     def choose_action(self, s):
         s = s[np.newaxis, :]                # 增加一个维度
-        probs = self.sess.run(self.acts_prob, {self.s: s})   # get probabilities for all actions
         speed_lvl = []
-        prob_tmp = probs[0]
 
-        for i in range(0,17):
-            prob_ = prob_tmp[i*5:(i+1)*5]
-            e_x = np.exp(prob_ - np.max(prob_))
-            prob__ =  e_x / e_x.sum()
-            speed_lvl.append(np.random.choice(np.arange(5), p=prob__))
+        feed_dict = {self.s: s}
+        for i in range(0,17):       #17个传送带分别建模 input state output action prob
+            probs = self.sess.run(self.acts_prob[i], feed_dict)        #fetches feed_dict
+            speed_lvl.append(np.random.choice(np.arange(5), p=probs[0]))
+
         return  speed_lvl           # return a int  按照概率P随机选择
 
 
@@ -124,6 +142,10 @@ class Critic(object):
         with tf.variable_scope('squared_TD_error'):
             self.td_error = self.r + GAMMA * self.v_ - self.v           # TDerror近似advantage function
             self.loss = tf.square(self.td_error)    # TD_error = (r+gamma*V_next) - V_eval      神经网络拟合advantage function，最小化loss
+            self.loss = tf.reduce_mean(self.loss)
+            tf.summary.scalar('loss',self.loss)
+
+        
         with tf.variable_scope('train'):
             self.train_op = tf.train.AdamOptimizer(lr).minimize(self.loss)
 
@@ -131,9 +153,9 @@ class Critic(object):
         s, s_ = s[np.newaxis, :], s_[np.newaxis, :]
 
         v_ = self.sess.run(self.v, {self.s: s_})
-        td_error, _ = self.sess.run([self.td_error, self.train_op],
+        td_error, _= self.sess.run([self.td_error, self.train_op],
                                           {self.s: s, self.v_: v_, self.r: r})
-        return td_error
+        return td_error,v_
 
 if __name__ == "__main__":
 
