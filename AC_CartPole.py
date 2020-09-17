@@ -39,14 +39,14 @@ class Actor(object):
     def __init__(self, sess, n_features, n_actions, lr=0.001):
         self.sess = sess
 
-        self.s = tf.placeholder(tf.float32, [1, n_features], "state")
+        self.s = tf.placeholder(tf.float32, [1, n_features], "state")       # dim 1*n_features
         self.a = tf.placeholder(tf.int32, None, "act")
         self.td_error = tf.placeholder(tf.float32, None, "td_error")  # TD_error
 
         with tf.variable_scope('Actor'):            # 拟合策略函数 input state,output act_prob
             l1 = tf.layers.dense(
                 inputs=self.s,
-                units=100,    # number of hidden units
+                units=30,    # number of hidden units
                 activation=tf.nn.relu,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
@@ -63,9 +63,9 @@ class Actor(object):
             )
 
         with tf.variable_scope('exp_v'):                    # 目标最大化回报函数
-            # self.acts_prob = tf.log(tf.clip_by_value(y,1e-8,1.0))
+            #  ??                                                                # 当前state take action对应的概率，增加正激励概率，减小负激励概率
             log_prob = tf.log(tf.clip_by_value(self.acts_prob,1e-8,1.0))    # 防止出现nan
-
+            self.log_prob = log_prob
             # log_prob = tf.log(self.acts_prob)           # ? 输入action       
             self.exp_v = tf.reduce_mean(log_prob * self.td_error)  # advantage (TD_error) guided loss 步长
 
@@ -75,7 +75,7 @@ class Actor(object):
     def learn(self, s, a, td):              # 反传？
         s = s[np.newaxis, :]
         feed_dict = {self.s: s, self.a: a, self.td_error: td}
-        _, exp_v = self.sess.run([self.train_op, self.exp_v], feed_dict)        #fetches feed_dict
+        _, exp_v,log_prob = self.sess.run([self.train_op, self.exp_v,self.log_prob], feed_dict)        #fetches feed_dict
         return exp_v
 
     def choose_action(self, s):

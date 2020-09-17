@@ -7,6 +7,23 @@ import gym
 np.random.seed(2)
 tf.set_random_seed(2)  # reproducible
 
+
+# tensorboard
+try:
+  image_summary = tf.image_summary
+  scalar_summary = tf.scalar_summary
+  histogram_summary = tf.histogram_summary
+  merge_summary = tf.merge_summary
+  SummaryWriter = tf.train.SummaryWriter
+except:
+  image_summary = tf.summary.image
+  scalar_summary = tf.summary.scalar
+  histogram_summary = tf.summary.histogram
+  merge_summary = tf.summary.merge
+  SummaryWriter = tf.summary.FileWriter
+
+
+
 # Superparameters
 OUTPUT_GRAPH = False             # 6006打不开要切换端口8008
 MAX_EPISODE = 1000
@@ -66,6 +83,7 @@ if __name__ == "__main__":
 
             if done or t >= MAX_EP_STEPS:
                 ep_rs_sum = sum(track_r)
+
 
                 if 'running_reward' not in globals():
                     running_reward = ep_rs_sum
