@@ -25,7 +25,7 @@ MAX_EP_STEPS = 5000   # maximum time step in one episode
 RENDER = False  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
 LR_A = 0.001    # learning rate for actor
-LR_C = 0.01     # learning rate for critic
+LR_C = 0.002     # learning rate for critic
 
 
 
@@ -54,7 +54,7 @@ class Actor(object):
         with tf.variable_scope('Actor'+str(index)):            # 拟合策略函数 input state,output act_prob
             l1 = tf.layers.dense(
                 inputs=self.s,
-                units=20,    # number of hidden units
+                units=30,    # number of hidden units
                 activation=tf.nn.relu,
                 kernel_initializer=tf.random_normal_initializer(0., .1),    # weights
                 bias_initializer=tf.constant_initializer(0.1),  # biases
@@ -76,7 +76,7 @@ class Actor(object):
             #  ??                                                                # 当前state take action对应的概率，增加正激励概率，减小负激励概率
             log_prob = tf.log(tf.clip_by_value(acts_prob_tmp[0,self.a[index]],1e-8,1.0))    # 防止出现nan
             self.log_prob.append(log_prob)
-            # log_prob = tf.log(self.acts_prob)           # ? 输入action  
+
             exp_v = tf.reduce_mean(log_prob * self.td_error)
             self.exp_v.append(exp_v)  # advantage (TD_error) guided loss 步长
 
@@ -101,7 +101,7 @@ class Actor(object):
         feed_dict = {self.s: s}
         for i in range(0,17):       #17个传送带分别建模 input state output action prob
             probs = self.sess.run(self.acts_prob[i], feed_dict)        #fetches feed_dict
-            speed_lvl.append(np.random.choice(np.arange(N_F), p=probs[0]))
+            speed_lvl.append(np.random.choice(np.arange(probs.shape[1]), p=probs.ravel()))
 
         return  speed_lvl           # return a int  按照概率P随机选择
 

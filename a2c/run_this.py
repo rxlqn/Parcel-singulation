@@ -16,7 +16,7 @@ MAX_EP_STEPS = 1000   # maximum time step in one episode
 RENDER = False  # rendering wastes time
 GAMMA = 0.9     # reward discount in TD error
 LR_A = 0.001    # learning rate for actor
-LR_C = 0.01     # learning rate for critic
+LR_C = 0.002     # learning rate for critic
 
 
 N_F = 10         # # of features
@@ -73,15 +73,15 @@ if __name__ == "__main__":
             if done or t >= MAX_EP_STEPS:
 
                 ep_rs_sum = sum(track_r)
-                print("episode:", i_episode, "  reward:", int(ep_rs_sum))
+                # print("episode:", i_episode, "  reward:", int(ep_rs_sum/MAX_EP_STEPS))
                 
-                # tf.summary.scalar('reward',ep_rs_sum)
-                # if 'running_reward' not in globals():
-                #     running_reward = ep_rs_sum
-                # else:
-                #     running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
-                # if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
-                # print("episode:", i_episode, "  reward:", int(running_reward))
+
+                if 'running_reward' not in globals():
+                    running_reward = ep_rs_sum
+                else:
+                    running_reward = running_reward * 0.95 + ep_rs_sum * 0.05
+                if running_reward > DISPLAY_REWARD_THRESHOLD: RENDER = True  # rendering
+                print("episode:", i_episode, "  reward:", int(running_reward))
                 break
     # 超过max_episode
     saver = tf.train.Saver()

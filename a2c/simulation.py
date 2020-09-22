@@ -408,7 +408,7 @@ class Environment(Physic_simulation):
     def step(self, action):
         # take action
         for i in range(0,17):
-            self.act_array.actuator[i].speed = action[i]*10 + 10        # 10-100可调
+            self.act_array.actuator[i].speed = action[i]*10+5        # 10-100可调
         # next step
         self.Parcel_sim()
         if len(self.Parcels) < 2:
