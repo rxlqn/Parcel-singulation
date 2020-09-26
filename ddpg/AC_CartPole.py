@@ -74,7 +74,7 @@ class Actor(object):
         with tf.variable_scope('exp_v'+str(index)):                    # 目标最大化回报函数
             acts_prob_tmp = self.acts_prob[index]
             #  ??                                                                # 当前state take action对应的概率，增加正激励概率，减小负激励概率
-            log_prob = tf.log(tf.clip_by_value(acts_prob_tmp[0,self.a[index]],1e-8,1.0))    # 防止出现nan
+            log_prob = tf.log(tf.clip_by_value(acts_prob_tmp[0,self.a[index]],1e-10,1.0))    # 防止出现nan
             self.log_prob.append(log_prob)
 
             exp_v = tf.reduce_mean(log_prob * self.td_error)
@@ -82,6 +82,7 @@ class Actor(object):
 
             ## 添加到tensorboard显示
             tf.summary.scalar('exp_v'+str(index),exp_v)
+            tf.summary.scalar('max_prob_index'+str(index),tf.math.argmax(acts_prob_tmp[0]))         ## 只能进行张量模型构建
 
         with tf.variable_scope('train'+str(index)):
             self.train_op.append(tf.train.AdamOptimizer(lr).minimize(-self.exp_v[index]))  # minimize(-exp_v) = maximize(exp_v)  

@@ -24,7 +24,7 @@ import control_policy as ctl
 
 import multiprocessing as mp
 import tensorflow as tf
-import AC_CartPole as ac 
+import DDPG as ddpg 
 
 LR_A = 0.001    # learning rate for actor
 LR_C = 0.01     # learning rate for critic
@@ -35,8 +35,8 @@ LR_C = 0.01     # learning rate for critic
 
 # N_F = env.observation_space.shape[0]
 # N_A = env.action_space.n
-N_F = 10         # # of features
-N_A = 10        # # of actions      17个传送带 
+N_F = 6         # # of features
+N_A = 17        # # of actions      17个传送带 
 
 env = si.Environment()
 s = env.reset()
@@ -211,7 +211,10 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         idx1 = int(normal)
         idx2 = int(idx1 + 1)
         fractBetween = normal - idx1
-        red = ((color[idx2][0] - color[idx1][0])*fractBetween + color[idx1][0])
+        try:
+            red = ((color[idx2][0] - color[idx1][0])*fractBetween + color[idx1][0])
+        except:
+            print("num is ",num)
         green = ((color[idx2][1] - color[idx1][1])
                  * fractBetween + color[idx1][1])
         blue = ((color[idx2][2] - color[idx1][2])
@@ -251,8 +254,9 @@ class Ui_MainWindow(QWidget):       # 继承Qwidget
         # if len(Parcels)!=0:
         #     ctl.Control(simulation)
 
-        a = actor.choose_action(s)
-        
+        a = ddpg.choose_action(s)
+        a = np.clip(a,5, 100)    # add randomness to action selection for exploration
+        # print(a)
         s_, r, done = env.step(a)
         s = s_
 
@@ -309,16 +313,17 @@ simualation = 0
 if __name__ == "__main__":
 
 
-    
-    sess = tf.Session()
-
-    actor = ac.Actor(sess, n_features=N_F, n_actions=N_A, lr=LR_A)
-    critic = ac.Critic(sess, n_features=N_F, lr=LR_C)     # we need a good teacher, so the teacher should learn faster than the actor
+    s_dim = N_F
+    a_dim = N_A
+    a_bound = 50
 
 
+    ddpg = ddpg.DDPG(a_dim, s_dim, a_bound)
+
+ 
     saver = tf.train.Saver()
     ckpt_path = './ckpt/test-model.ckpt'
-    saver.restore(sess, ckpt_path)
+    saver.restore(ddpg.sess, ckpt_path)
 
     # s = env.reset()
 

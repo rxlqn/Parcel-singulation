@@ -32,6 +32,7 @@ MEMORY_CAPACITY = 10000
 BATCH_SIZE = 32
 
 RENDER = False
+
 ENV_NAME = 'Pendulum-v0'
 
 
@@ -49,23 +50,27 @@ class DDPG(object):
         self.S_ = tf.placeholder(tf.float32, [None, s_dim], 's_')
         self.R = tf.placeholder(tf.float32, [None, 1], 'r')
 
-        self.a = self._build_a(self.S,)
+        # 现实网络，生成trajectory网络，每隔一段时间soft update训练网络中的参数
+        self.a = self._build_a(self.S,)                   
         q = self._build_c(self.S, self.a, )
-        a_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Actor')
+        a_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Actor')   # 获取actor中可训练的参数
         c_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='Critic')
-        ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)          # soft replacement
+        ema = tf.train.ExponentialMovingAverage(decay=1 - TAU)          # soft replacement，可以设置num_update
 
         def ema_getter(getter, name, *args, **kwargs):
             return ema.average(getter(name, *args, **kwargs))
 
         target_update = [ema.apply(a_params), ema.apply(c_params)]      # soft update operation
+
+        # evl_net 
+
         a_ = self._build_a(self.S_, reuse=True, custom_getter=ema_getter)   # replaced target parameters
         q_ = self._build_c(self.S_, a_, reuse=True, custom_getter=ema_getter)
 
         a_loss = - tf.reduce_mean(q)  # maximize the q
         self.atrain = tf.train.AdamOptimizer(LR_A).minimize(a_loss, var_list=a_params)
 
-        with tf.control_dependencies(target_update):    # soft replacement happened at here
+        with tf.control_dependencies(target_update):    # soft replacement happened at here  先执行input中的操作，再执行后面的
             q_target = self.R + GAMMA * q_
             td_error = tf.losses.mean_squared_error(labels=q_target, predictions=q)
             self.ctrain = tf.train.AdamOptimizer(LR_C).minimize(td_error, var_list=c_params)
@@ -73,11 +78,11 @@ class DDPG(object):
         self.sess.run(tf.global_variables_initializer())
 
     def choose_action(self, s):
-        return self.sess.run(self.a, {self.S: s[np.newaxis, :]})[0]
+        return self.sess.run(self.a, {self.S: s[np.newaxis, :]})[0]     ## 可以增加noise？
 
     def learn(self):
         indices = np.random.choice(MEMORY_CAPACITY, size=BATCH_SIZE)
-        bt = self.memory[indices, :]
+        bt = self.memory[indices, :]            ## 从memory中取数据，sample mini_batch
         bs = bt[:, :self.s_dim]
         ba = bt[:, self.s_dim: self.s_dim + self.a_dim]
         br = bt[:, -self.s_dim - 1: -self.s_dim]
@@ -87,23 +92,23 @@ class DDPG(object):
         self.sess.run(self.ctrain, {self.S: bs, self.a: ba, self.R: br, self.S_: bs_})
 
     def store_transition(self, s, a, r, s_):
-        transition = np.hstack((s, a, [r], s_))
+        transition = np.hstack((s, a, [r], s_))     ## horizontal stack 水平堆叠
         index = self.pointer % MEMORY_CAPACITY  # replace the old memory with new memory
         self.memory[index, :] = transition
         self.pointer += 1
 
-    def _build_a(self, s, reuse=None, custom_getter=None):
+    def _build_a(self, s, reuse=None, custom_getter=None):      # input state ouput scaled_action
         trainable = True if reuse is None else False
         with tf.variable_scope('Actor', reuse=reuse, custom_getter=custom_getter):
             net = tf.layers.dense(s, 30, activation=tf.nn.relu, name='l1', trainable=trainable)
             a = tf.layers.dense(net, self.a_dim, activation=tf.nn.tanh, name='a', trainable=trainable)
             return tf.multiply(a, self.a_bound, name='scaled_a')
 
-    def _build_c(self, s, a, reuse=None, custom_getter=None):
+    def _build_c(self, s, a, reuse=None, custom_getter=None):   # input state action ouput state_action value
         trainable = True if reuse is None else False
         with tf.variable_scope('Critic', reuse=reuse, custom_getter=custom_getter):
             n_l1 = 30
-            w1_s = tf.get_variable('w1_s', [self.s_dim, n_l1], trainable=trainable)
+            w1_s = tf.get_variable('w1_s', [self.s_dim, n_l1], trainable=trainable)     # 定义变量
             w1_a = tf.get_variable('w1_a', [self.a_dim, n_l1], trainable=trainable)
             b1 = tf.get_variable('b1', [1, n_l1], trainable=trainable)
             net = tf.nn.relu(tf.matmul(s, w1_s) + tf.matmul(a, w1_a) + b1)
@@ -111,42 +116,48 @@ class DDPG(object):
 
 
 ###############################  training  ####################################
+if __name__ == "__main__":
+   
+    sess = tf.Session()
 
-env = gym.make(ENV_NAME)
-env = env.unwrapped
-env.seed(1)
+    env = gym.make(ENV_NAME)
+    env = env.unwrapped
+    env.seed(1)
 
-s_dim = env.observation_space.shape[0]
-a_dim = env.action_space.shape[0]
-a_bound = env.action_space.high
+    s_dim = env.observation_space.shape[0]
+    a_dim = env.action_space.shape[0]
+    a_bound = env.action_space.high
 
-ddpg = DDPG(a_dim, s_dim, a_bound)
+    ddpg = DDPG(a_dim, s_dim, a_bound)
 
-var = 3  # control exploration
-t1 = time.time()
-for i in range(MAX_EPISODES):
-    s = env.reset()
-    ep_reward = 0
-    for j in range(MAX_EP_STEPS):
-        if RENDER:
-            env.render()
+    writer = tf.summary.FileWriter("logs/", sess.graph)
 
-        # Add exploration noise
-        a = ddpg.choose_action(s)
-        a = np.clip(np.random.normal(a, var), -2, 2)    # add randomness to action selection for exploration
-        s_, r, done, info = env.step(a)
 
-        ddpg.store_transition(s, a, r / 10, s_)
+    var = 3  # control exploration
+    t1 = time.time()
+    for i in range(MAX_EPISODES):
+        s = env.reset()
+        ep_reward = 0
+        for j in range(MAX_EP_STEPS):
+            if RENDER:
+                env.render()
 
-        if ddpg.pointer > MEMORY_CAPACITY:
-            var *= .9995    # decay the action randomness
-            ddpg.learn()
+            # Add exploration noise
+            a = ddpg.choose_action(s)
+            a = np.clip(np.random.normal(a, var), -2, 2)    # add randomness to action selection for exploration
+            s_, r, done, info = env.step(a)
 
-        s = s_
-        ep_reward += r
-        if j == MAX_EP_STEPS-1:
-            print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, )
-            # if ep_reward > -300:RENDER = True
-            break
+            ddpg.store_transition(s, a, r / 10, s_)
 
-print('Running time: ', time.time() - t1)
+            if ddpg.pointer > MEMORY_CAPACITY:
+                var *= .9995    # decay the action randomness
+                ddpg.learn()
+
+            s = s_
+            ep_reward += r
+            if j == MAX_EP_STEPS-1:
+                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, )
+                # if ep_reward > -300:RENDER = True
+                break
+
+    print('Running time: ', time.time() - t1)
