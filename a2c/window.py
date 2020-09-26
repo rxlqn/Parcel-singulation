@@ -35,7 +35,7 @@ LR_C = 0.01     # learning rate for critic
 
 # N_F = env.observation_space.shape[0]
 # N_A = env.action_space.n
-N_F = 10         # # of features
+N_F = 6         # # of features
 N_A = 10        # # of actions      17个传送带 
 
 env = si.Environment()

@@ -10,7 +10,7 @@ tf.set_random_seed(2)  # reproducible
 
 # Superparameters
 OUTPUT_GRAPH = True             # 6006打不开要切换端口8008
-MAX_EPISODE = 100
+MAX_EPISODE = 500
 DISPLAY_REWARD_THRESHOLD = 200  # renders environment if total episode reward is greater then this threshold
 MAX_EP_STEPS = 1000   # maximum time step in one episode
 RENDER = False  # rendering wastes time
@@ -19,7 +19,7 @@ LR_A = 0.001    # learning rate for actor
 LR_C = 0.002     # learning rate for critic
 
 
-N_F = 10         # # of features
+N_F = 6         # # of features
 N_A = 10        # # of actions      17个传送带  10个速度
 
 env = sim.Environment()
@@ -39,10 +39,11 @@ if __name__ == "__main__":
     if OUTPUT_GRAPH:
         writer = tf.summary.FileWriter("logs/", sess.graph)
         # writer.add_summary
-    for i_episode in range(MAX_EPISODE):
-        s = env.reset()
-        # init state 
 
+    s = env.reset()
+    # init state 
+
+    for i_episode in range(MAX_EPISODE):
 
         t = 0
         track_r = []
@@ -52,6 +53,10 @@ if __name__ == "__main__":
             a = actor.choose_action(s)
 
             s_, r, done = env.step(a)
+
+            if done:            # 两个包裹都停下
+                r = -5000
+                s = env.reset()
 
             track_r.append(r)
 
@@ -69,6 +74,7 @@ if __name__ == "__main__":
             # update
             s = s_
             t += 1
+
 
             if done or t >= MAX_EP_STEPS:
 
