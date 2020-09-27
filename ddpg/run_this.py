@@ -11,7 +11,7 @@ tf.set_random_seed(2)  # reproducible
 
 
 # Superparameters
-MAX_EPISODES = 300
+MAX_EPISODES = 400
 MAX_EP_STEPS = 1000
 LR_A = 0.001    # learning rate for actor
 LR_C = 0.002    # learning rate for critic
@@ -21,7 +21,7 @@ MEMORY_CAPACITY = 10000
 BATCH_SIZE = 32
 
 RENDER = False
-OUTPUT_GRAPH = False
+OUTPUT_GRAPH = True
 
 N_F = 6         # # of features
 N_A = 17        # # of actions      17个传送带  10个速度
@@ -67,10 +67,14 @@ if __name__ == "__main__":
             ddpg.store_transition(s, a, r , s_)
 
             if ddpg.pointer > MEMORY_CAPACITY:
-                var *= .9995    # decay the action randomness
+                var *= .9999    # decay the action randomness
                 ddpg.learn()
                 count = count + 1
                 # print("学习   ",count)
+                if count%500 == 1:
+                    result = ddpg.plot_(merged)
+                    writer.add_summary(result, count)
+
 
             s = s_
             ep_reward += r

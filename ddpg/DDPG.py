@@ -70,6 +70,10 @@ class DDPG(object):
         a_loss = - tf.reduce_mean(q)    # maximize the q
         self.atrain = tf.train.AdamOptimizer(LR_A).minimize(a_loss, var_list=self.ae_params)
 
+        ## 添加到tensorboard显示
+        tf.summary.scalar('q_vlaue',-a_loss)
+        tf.summary.scalar('td_error',td_error) 
+
         self.sess.run(tf.global_variables_initializer())
 
 
@@ -90,6 +94,16 @@ class DDPG(object):
 
         self.sess.run(self.atrain, {self.S: bs})
         self.sess.run(self.ctrain, {self.S: bs, self.a: ba, self.R: br, self.S_: bs_})
+
+    def plot_(self,merged):
+        indices = np.random.choice(MEMORY_CAPACITY, size=BATCH_SIZE)
+        bt = self.memory[indices, :]
+        bs = bt[:, :self.s_dim]
+        ba = bt[:, self.s_dim: self.s_dim + self.a_dim]
+        br = bt[:, -self.s_dim - 1: -self.s_dim]
+        bs_ = bt[:, -self.s_dim:]
+
+        return self.sess.run(merged,{self.S: bs, self.a: ba, self.R: br, self.S_: bs_})
 
     def store_transition(self, s, a, r, s_):
         transition = np.hstack((s, a, [r], s_))
