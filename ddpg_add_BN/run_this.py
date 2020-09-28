@@ -14,7 +14,7 @@ tf.set_random_seed(2)  # reproducible
 MAX_EPISODES = 500
 MAX_EP_STEPS = 1000
 
-MEMORY_CAPACITY = 100000
+MEMORY_CAPACITY = 1000
 BATCH_SIZE = 64
 
 RENDER = False
@@ -69,7 +69,10 @@ if __name__ == "__main__":
                 count = count + 1
                 # print("学习   ",count)
                 if count%500 == 1:
-                    result = ddpg.plot_(merged,ep_reward/j)
+                    try:
+                        result = ddpg.plot_(merged,ep_reward/j)
+                    except:
+                        result = ddpg.plot_(merged,0)
                     writer.add_summary(result, count)
 
 

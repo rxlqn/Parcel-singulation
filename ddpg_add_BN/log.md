@@ -46,8 +46,7 @@
 
 
 - ![image-20200927225320693](C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20200927225320693.png)
-- ![image-20200928151932272](C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20200928151932272.png)
-- ![image-20200928151951399](C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20200928151951399.png)
+- ![image-20200927225332271](C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20200927225332271.png)
 - ![image-20200927231002187](C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20200927231002187.png)
 - ![image-20200927231014325](C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20200927231014325.png)
 
