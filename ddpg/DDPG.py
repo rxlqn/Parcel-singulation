@@ -72,6 +72,9 @@ class DDPG(object):
         tf.summary.scalar('q_vlaue',-a_loss)
         tf.summary.scalar('td_error',td_error) 
 
+        self.ep_reward = tf.placeholder(tf.float32, 1, 'ep_reward')
+        tf.summary.scalar('ep_reward',tf.reduce_mean(self.ep_reward))
+
         self.sess.run(tf.global_variables_initializer())
 
 
@@ -93,7 +96,7 @@ class DDPG(object):
         self.sess.run(self.atrain, {self.S: bs})
         self.sess.run(self.ctrain, {self.S: bs, self.a: ba, self.R: br, self.S_: bs_})
 
-    def plot_(self,merged):
+    def plot_(self,merged,ep_reward):
         indices = np.random.choice(MEMORY_CAPACITY, size=BATCH_SIZE)
         bt = self.memory[indices, :]
         bs = bt[:, :self.s_dim]
@@ -101,7 +104,7 @@ class DDPG(object):
         br = bt[:, -self.s_dim - 1: -self.s_dim]
         bs_ = bt[:, -self.s_dim:]
 
-        return self.sess.run(merged,{self.S: bs, self.a: ba, self.R: br, self.S_: bs_})
+        return self.sess.run(merged,{self.S: bs, self.a: ba, self.R: br, self.S_: bs_, self.ep_reward: [ep_reward]})
 
     def store_transition(self, s, a, r, s_):
         transition = np.hstack((s, a, [r], s_))
