@@ -11,14 +11,11 @@ tf.set_random_seed(2)  # reproducible
 
 
 # Superparameters
-MAX_EPISODES = 400
+MAX_EPISODES = 500
 MAX_EP_STEPS = 1000
-LR_A = 0.001    # learning rate for actor
-LR_C = 0.002    # learning rate for critic
-GAMMA = 0.9     # reward discount
-TAU = 0.01      # soft replacement
-MEMORY_CAPACITY = 10000
-BATCH_SIZE = 32
+
+MEMORY_CAPACITY = 100000
+BATCH_SIZE = 64
 
 RENDER = False
 OUTPUT_GRAPH = True
@@ -81,13 +78,13 @@ if __name__ == "__main__":
 
 
             if j == MAX_EP_STEPS-1:
-                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, count)
+                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, count,"ddpg_pointer",ddpg.pointer)
                 # if ep_reward > -300:RENDER = True
                 # break
 
             if done:
                 s = env.reset()
-                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, count)
+                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, count,"ddpg_pointer",ddpg.pointer)
                 break   
 
     print('Running time: ', time.time() - t1)

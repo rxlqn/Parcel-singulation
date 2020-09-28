@@ -18,17 +18,15 @@ import time
 
 #####################  hyper parameters  ####################
 
-MAX_EPISODES = 200
-MAX_EP_STEPS = 200
-LR_A = 0.001    # learning rate for actor
-LR_C = 0.002    # learning rate for critic
-GAMMA = 0.9     # reward discount
-TAU = 0.01      # soft replacement
-MEMORY_CAPACITY = 10000
-BATCH_SIZE = 32
+ 
+LR_A = 0.0001    # learning rate for actor
+LR_C = 0.001    # learning rate for critic
+GAMMA = 0.99     # reward discount
+TAU = 0.001      # soft replacement
 
-RENDER = False
-ENV_NAME = 'Pendulum-v0'
+MEMORY_CAPACITY = 100000
+BATCH_SIZE = 64
+
 
 ###############################  DDPG  ####################################
 
@@ -113,18 +111,22 @@ class DDPG(object):
 
     def _build_a(self, s, scope, trainable):
         with tf.variable_scope(scope):
-            net = tf.layers.dense(s, 30, activation=tf.nn.relu, name='l1', trainable=trainable)
-            a = tf.layers.dense(net, self.a_dim, activation=tf.nn.tanh, name='a', trainable=trainable)
+            net1 = tf.layers.dense(s, 400, activation=tf.nn.relu, name='l1', trainable=trainable)
+            net2 = tf.layers.dense(net1, 300, activation=tf.nn.relu, name='l2', trainable=trainable)
+
+            a = tf.layers.dense(net2, self.a_dim, activation=tf.nn.tanh, name='a', trainable=trainable)
             a = tf.add(a,1)
             return tf.multiply(a, self.a_bound, name='scaled_a')
 
     def _build_c(self, s, a, scope, trainable):
         with tf.variable_scope(scope):
-            n_l1 = 30
-            w1_s = tf.get_variable('w1_s', [self.s_dim, n_l1], trainable=trainable)
-            w1_a = tf.get_variable('w1_a', [self.a_dim, n_l1], trainable=trainable)
-            b1 = tf.get_variable('b1', [1, n_l1], trainable=trainable)
-            net = tf.nn.relu(tf.matmul(s, w1_s) + tf.matmul(a, w1_a) + b1)
+            l1 = tf.layers.dense(s, 400, activation=tf.nn.relu, name='l1', trainable=trainable)
+
+            n_l2 = 300
+            w2_s = tf.get_variable('w2_s', [400, n_l2], trainable=trainable)
+            w2_a = tf.get_variable('w2_a', [self.a_dim, n_l2], trainable=trainable)
+            b2 = tf.get_variable('b2', [1, n_l2], trainable=trainable)
+            net = tf.nn.relu(tf.matmul(l1, w2_s) + tf.matmul(a, w2_a) + b2)
             return tf.layers.dense(net, 1, trainable=trainable)  # Q(s,a)
 
 ###############################  training  ####################################
@@ -133,7 +135,7 @@ if __name__ == "__main__":
     # sess = tf.Session()
 
 
-    env = gym.make(ENV_NAME)
+    env = gym.make(123)
     env = env.unwrapped
     env.seed(1)
 
