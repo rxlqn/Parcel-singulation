@@ -53,4 +53,13 @@
 
 #### Exp 2
 
-- add BN
+- add BN（not work)
+
+#### Exp 3
+
+- add done_flag
+- normalize gradients(according to papper)
+- same hyperparameter
+- have better ep_reward
+- <img src="C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20200929131419166.png" alt="image-20200929131419166" style="zoom: 67%;" />
+- <img src="C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20200929131433509.png" alt="image-20200929131433509" style="zoom:67%;" />

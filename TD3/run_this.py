@@ -1,5 +1,5 @@
 # import AC_CartPole as ac 
-import DDPG as ddpg
+import TD3 as td3
 import simulation as sim 
 import numpy as np
 import tensorflow as tf
@@ -34,12 +34,12 @@ if __name__ == "__main__":
     a_dim = N_A
     a_bound = 50
 
-    ddpg = ddpg.DDPG(a_dim, s_dim, a_bound)
+    td3 = td3.TD3(a_dim, s_dim, a_bound)
     merged = tf.summary.merge_all()
 
 
     if OUTPUT_GRAPH:
-        writer = tf.summary.FileWriter("logs/", ddpg.sess.graph)
+        writer = tf.summary.FileWriter("logs/", td3.sess.graph)
         # writer.add_summary
 
 
@@ -57,36 +57,35 @@ if __name__ == "__main__":
             #     env.render()
 
             # Add exploration noise
-            a = ddpg.choose_action(s)
+            a = td3.choose_action(s)
             a = np.clip(np.round(np.random.normal(a, var)), 5, 100)    # add randomness to action selection for exploration
             s_, r, done  = env.step(a)
 
-            ddpg.store_transition(s, a, r , s_, done)         ## 增加done
+            td3.store_transition(s, a, r , s_)
 
-            if ddpg.pointer > MEMORY_CAPACITY:
-                var *= .9999    # decay the action randomness
-                ddpg.learn()
+            if td3.pointer > MEMORY_CAPACITY:
+                # var *= .9999    # decay the action randomness
+                td3.learn()
                 # print("学习   ",count)
 
             ep_reward += r
 
 
             if j == MAX_EP_STEPS-1:
-                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, count,"ddpg_pointer",ddpg.pointer)
-                if ddpg.pointer > MEMORY_CAPACITY:
-                    result = ddpg.plot_(merged,ep_reward/(j+1))
-                    writer.add_summary(result, count)
-                    count = count + 1
+                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, count,"td3_pointer",td3.pointer)
+                result = td3.plot_(merged,ep_reward/j)
+                writer.add_summary(result, count)
+                count = count + 1
 
             s = s_
 
             if done:
                 s = env.reset()
-                # print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, count,"ddpg_pointer",ddpg.pointer)
-                # break   
+                print('Episode:', i, ' Reward: %i' % int(ep_reward), 'Explore: %.2f' % var, count,"td3_pointer",td3.pointer)
+                break   
 
     print('Running time: ', time.time() - t1)
     # 超过max_episode
     saver = tf.train.Saver()
     ckpt_path = './ckpt/test-model.ckpt'
-    save_path = saver.save(ddpg.sess, ckpt_path)
+    save_path = saver.save(td3.sess, ckpt_path)

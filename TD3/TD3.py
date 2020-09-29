@@ -1,9 +1,6 @@
 """
-Deep Deterministic Policy Gradient (DDPG), Reinforcement Learning.
-DDPG is Actor Critic based algorithm.
-Pendulum example.
-
-View more on my tutorial page: https://morvanzhou.github.io/tutorials/
+MY_TD3
+add tricks to mofan's ddpg
 
 Using:
 tensorflow 1.0
@@ -28,11 +25,11 @@ MEMORY_CAPACITY = 100000
 BATCH_SIZE = 64
 
 
-###############################  DDPG  ####################################
+###############################  TD3  ####################################
 
-class DDPG(object):
+class TD3(object):
     def __init__(self, a_dim, s_dim, a_bound,):
-        self.memory = np.zeros((MEMORY_CAPACITY, s_dim * 2 + a_dim + 2), dtype=np.float32)
+        self.memory = np.zeros((MEMORY_CAPACITY, s_dim * 2 + a_dim + 1), dtype=np.float32)
         self.pointer = 0
         self.sess = tf.Session()
 
@@ -40,8 +37,6 @@ class DDPG(object):
         self.S = tf.placeholder(tf.float32, [None, s_dim], 's')
         self.S_ = tf.placeholder(tf.float32, [None, s_dim], 's_')
         self.R = tf.placeholder(tf.float32, [None, 1], 'r')
-        self.done = tf.placeholder(tf.float32, [None,1], 'done')
-        self.B = tf.placeholder(tf.float32, None, 'Batch_norm')        # batch 的模
 
         with tf.variable_scope('Actor'):
             self.a = self._build_a(self.S, scope='eval', trainable=True)
@@ -49,28 +44,36 @@ class DDPG(object):
         with tf.variable_scope('Critic'):
             # assign self.a = a in memory when calculating q for td_error,
             # otherwise the self.a is from Actor when updating Actor
-            q = self._build_c(self.S, self.a, scope='eval', trainable=True)
+            # 训练evl_net soft_replace target_net
+            # 学习两个Q_value选择小的更新
+            q1 = self._build_c(self.S, self.a, scope='eval_1', trainable=True)
+            q2 = self._build_c(self.S, self.a, scope='eval_2', trainable=True)
+
             q_ = self._build_c(self.S_, a_, scope='target', trainable=False)
 
         # networks parameters
         self.ae_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Actor/eval')
         self.at_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Actor/target')
-        self.ce_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/eval')
+
+        self.ce1_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/eval_1')
+        self.ce2_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/eval_2')
+
         self.ct_params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='Critic/target')
 
         # target net replacement
-        self.soft_replace = [tf.assign(t, (1 - TAU) * t + TAU * e)
-                             for t, e in zip(self.at_params + self.ct_params, self.ae_params + self.ce_params)]     # zip将对应元素打包成元组
+        self.soft_replace_1 = [tf.assign(t, (1 - TAU) * t + TAU * e)
+                             for t, e in zip(self.at_params + self.ct_params, self.ae_params + self.ce1_params)]     # zip将对应元素打包成元组
 
-        q_target = self.R + GAMMA * (1 - self.done) * q_
+        self.soft_replace_2 = [tf.assign(t, (1 - TAU) * t + TAU * e)
+                             for t, e in zip(self.at_params + self.ct_params, self.ae_params + self.ce2_params)]     # zip将对应元素打包成元组
 
+
+        q_target = self.R + GAMMA * q_
         # in the feed_dic for the td_error, the self.a should change to actions in memory
         td_error = tf.losses.mean_squared_error(labels=q_target, predictions=q)
-        td_error = td_error/self.B 
         self.ctrain = tf.train.AdamOptimizer(LR_C).minimize(td_error, var_list=self.ce_params)
 
         a_loss = - tf.reduce_mean(q)    # maximize the q
-        a_loss = a_loss/self.B 
         self.atrain = tf.train.AdamOptimizer(LR_A).minimize(a_loss, var_list=self.ae_params)
 
         ## 添加到tensorboard显示
@@ -88,37 +91,31 @@ class DDPG(object):
         return self.sess.run(self.a, {self.S: s[np.newaxis, :]})[0]
 
     def learn(self):
+        # soft target replacement
+        self.sess.run(self.soft_replace_1)
 
         indices = np.random.choice(MEMORY_CAPACITY, size=BATCH_SIZE)
         bt = self.memory[indices, :]
         bs = bt[:, :self.s_dim]
         ba = bt[:, self.s_dim: self.s_dim + self.a_dim]
-        br = bt[:, self.s_dim + self.a_dim: self.s_dim + self.a_dim + 1]
-        bs_ = bt[:, -self.s_dim - 1:-1]
-        bd = bt[:, -1:]
+        br = bt[:, -self.s_dim - 1: -self.s_dim]
+        bs_ = bt[:, -self.s_dim:]
 
-        B_norm = np.linalg.norm(bt)
-        self.sess.run(self.ctrain, {self.S: bs, self.a: ba, self.R: br, self.S_: bs_, self.done: bd, self.B: B_norm})
-        self.sess.run(self.atrain, {self.S: bs,self.B: [B_norm]})
-
-        # soft target replacement
-        self.sess.run(self.soft_replace)
+        self.sess.run(self.atrain, {self.S: bs})
+        self.sess.run(self.ctrain, {self.S: bs, self.a: ba, self.R: br, self.S_: bs_})
 
     def plot_(self,merged,ep_reward):
         indices = np.random.choice(MEMORY_CAPACITY, size=BATCH_SIZE)
         bt = self.memory[indices, :]
         bs = bt[:, :self.s_dim]
         ba = bt[:, self.s_dim: self.s_dim + self.a_dim]
-        br = bt[:, self.s_dim + self.a_dim: self.s_dim + self.a_dim + 1]
-        bs_ = bt[:, -self.s_dim - 1:-1]
-        bd = bt[:, -1:]
+        br = bt[:, -self.s_dim - 1: -self.s_dim]
+        bs_ = bt[:, -self.s_dim:]
 
-        B_norm = np.linalg.norm(bt)
+        return self.sess.run(merged,{self.S: bs, self.a: ba, self.R: br, self.S_: bs_, self.ep_reward: [ep_reward]})
 
-        return self.sess.run(merged,{self.S: bs, self.a: ba, self.R: br, self.S_: bs_, self.done: bd,self.B: B_norm, self.ep_reward: [ep_reward]})
-
-    def store_transition(self, s, a, r, s_, done):
-        transition = np.hstack((s, a, [r], s_, done))
+    def store_transition(self, s, a, r, s_):
+        transition = np.hstack((s, a, [r], s_))
         index = self.pointer % MEMORY_CAPACITY  # replace the old memory with new memory
         self.memory[index, :] = transition
         self.pointer += 1
@@ -143,4 +140,3 @@ class DDPG(object):
             net = tf.nn.relu(tf.matmul(l1, w2_s) + tf.matmul(a, w2_a) + b2)
             return tf.layers.dense(net, 1, trainable=trainable)  # Q(s,a)
 
- 

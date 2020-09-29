@@ -449,7 +449,7 @@ class Environment(Physic_simulation):
                 r_finish = -1000
             # if delta_t >6:
             #     r_finish = -10
-            print("两个包裹相差时间\t",round(delta_t,1),"\tr_finish\t", round(r_finish,1))
+            # print("两个包裹相差时间\t",round(delta_t,1),"\tr_finish\t", round(r_finish,1))
             # print(delta_t)
         r = r_normal + r_finish
         return s_,r,done
